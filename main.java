@@ -593,3 +593,88 @@ public final class HotHotelai {
         p.add(addGuideBtn, BorderLayout.SOUTH);
         return p;
     }
+
+    private JPanel buildRegionStatsPanel() {
+        JPanel p = new JPanel(new BorderLayout(8, 8));
+        DefaultTableModel statsModel = new DefaultTableModel(new String[] { "Region", "Properties", "Avg score", "Total reviews" }, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+        JButton refreshStats = new JButton("Refresh stats");
+        refreshStats.addActionListener(e -> {
+            statsModel.setRowCount(0);
+            for (RegionStats s : service.getRegionStats()) {
+                statsModel.addRow(new Object[] { s.getRegionHash(), s.getPropertyCount(), String.format("%.2f", s.getAvgScoreBand()), s.getTotalReviews() });
+            }
+        });
+        refreshStats.doClick();
+        p.add(new JScrollPane(new JTable(statsModel)), BorderLayout.CENTER);
+        p.add(refreshStats, BorderLayout.SOUTH);
+        return p;
+    }
+
+    private JPanel buildAICheckerPanel() {
+        JPanel p = new JPanel(new BorderLayout(8, 8));
+        JTextField propIdField = new JTextField(30);
+        JButton verifyBtn = new JButton("Verify lattice hashes");
+        DefaultTableModel verifyModel = new DefaultTableModel(new String[] { "Review hash", "Score", "Block", "Computed hash" }, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+        JTable verifyTable = new JTable(verifyModel);
+        verifyBtn.addActionListener(e -> {
+            String id = propIdField.getText().trim();
+            if (id.isEmpty()) return;
+            verifyModel.setRowCount(0);
+            for (LatticeVerificationResult r : service.verifyLatticeBatch(id)) {
+                verifyModel.addRow(new Object[] { r.getReviewHash(), r.getScoreBand(), r.getAtBlock(), r.getComputedHash() });
+            }
+        });
+        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        top.add(new JLabel("Property ID:"));
+        top.add(propIdField);
+        top.add(verifyBtn);
+        p.add(top, BorderLayout.NORTH);
+        p.add(new JScrollPane(verifyTable), BorderLayout.CENTER);
+        return p;
+    }
+
+    private JPanel buildExportPanel() {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 12));
+        JButton exportCsvBtn = new JButton("Export properties to CSV");
+        exportCsvBtn.addActionListener(e -> {
+            JFileChooser fc = new JFileChooser();
+            if (fc.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                try {
+                    service.exportCsv(fc.getSelectedFile().toPath());
+                    JOptionPane.showMessageDialog(frame, "Exported.");
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(frame, "Export failed: " + ex.getMessage());
+                }
+            }
+        });
+        JButton saveDataBtn = new JButton("Save all data");
+        saveDataBtn.addActionListener(e -> saveData());
+        p.add(exportCsvBtn);
+        p.add(saveDataBtn);
+        p.add(createExportComparisonsButton());
+        p.add(new JLabel("  Total properties: " + service.getAllProperties().size()));
+        p.add(new JLabel("  Total reviews: " + service.getTotalReviewCount()));
+        return p;
+    }
+
+    private void refreshPropertyTable() {
+        propertyModel.setRowCount(0);
+        String search = searchField.getText().trim().toLowerCase();
+        String region = (String) regionFilter.getSelectedItem();
+        boolean filterRegion = region != null && !region.equals("<All regions>");
+        for (PropertyRecord p : service.getAllProperties()) {
+            if (search.length() > 0 && !p.getPropertyId().toLowerCase().contains(search)
+                && !p.getRegionHash().toLowerCase().contains(search)) continue;
+            if (filterRegion && !p.getRegionHash().equals(region)) continue;
+            propertyModel.addRow(new Object[] {
+                p.getPropertyId(),
+                p.getRegionHash(),
+                p.getListedBy(),
+                p.getCurrentScoreBand(),
+                p.getReviewCount(),

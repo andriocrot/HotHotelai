@@ -253,3 +253,88 @@ public final class HotHotelai {
         }
 
         public List<ReviewRecord> getReviews(String propertyId) {
+            return new ArrayList<>(reviewsByProperty.getOrDefault(propertyId, Collections.emptyList()));
+        }
+
+        public double getAverageScoreBand(String propertyId) {
+            List<ReviewRecord> list = reviewsByProperty.getOrDefault(propertyId, Collections.emptyList());
+            if (list.isEmpty()) return 0.0;
+            return list.stream().mapToInt(ReviewRecord::getScoreBand).average().orElse(0.0);
+        }
+
+        public int getMedianScoreBand(String propertyId) {
+            List<ReviewRecord> list = reviewsByProperty.getOrDefault(propertyId, Collections.emptyList());
+            if (list.isEmpty()) return 0;
+            int[] bands = list.stream().mapToInt(ReviewRecord::getScoreBand).sorted().toArray();
+            int mid = bands.length / 2;
+            return bands.length % 2 == 1 ? bands[mid] : (bands[mid - 1] + bands[mid]) / 2;
+        }
+
+        public void addComparison(ComparisonSnapshot c) {
+            comparisons.add(c);
+        }
+
+        public List<ComparisonSnapshot> getComparisons() {
+            return new ArrayList<>(comparisons);
+        }
+
+        public Optional<ComparisonSnapshot> getComparison(String leftId, String rightId) {
+            return comparisons.stream()
+                .filter(x -> (x.getLeftId().equals(leftId) && x.getRightId().equals(rightId))
+                    || (x.getLeftId().equals(rightId) && x.getRightId().equals(leftId)))
+                .findFirst();
+        }
+
+        public List<PropertyRecord> getTopByScoreBand(String regionHash, int limit) {
+            return getPropertiesByRegion(regionHash).stream()
+                .sorted((a, b) -> Integer.compare(b.getCurrentScoreBand(), a.getCurrentScoreBand()))
+                .limit(limit)
+                .collect(Collectors.toList());
+        }
+
+        public Set<String> getAllRegions() {
+            return properties.values().stream().map(PropertyRecord::getRegionHash).collect(Collectors.toSet());
+        }
+
+        public List<RegionStats> getRegionStats() {
+            Map<String, List<PropertyRecord>> byRegion = new LinkedHashMap<>();
+            for (PropertyRecord p : properties.values()) {
+                byRegion.computeIfAbsent(p.getRegionHash(), k -> new ArrayList<>()).add(p);
+            }
+            List<RegionStats> out = new ArrayList<>();
+            for (Map.Entry<String, List<PropertyRecord>> e : byRegion.entrySet()) {
+                List<PropertyRecord> list = e.getValue();
+                int totalReviews = list.stream().mapToInt(PropertyRecord::getReviewCount).sum();
+                double avg = list.stream().mapToInt(PropertyRecord::getCurrentScoreBand).average().orElse(0.0);
+                out.add(new RegionStats(e.getKey(), list.size(), avg, totalReviews));
+            }
+            return out;
+        }
+
+        public void addGuide(GuideRecord g) {
+            guides.put(g.getGuideId(), g);
+        }
+
+        public Optional<GuideRecord> getGuide(String guideId) {
+            return Optional.ofNullable(guides.get(guideId));
+        }
+
+        public List<GuideRecord> getAllGuides() {
+            return new ArrayList<>(guides.values());
+        }
+
+        public void addGuideSegment(String guideId, String contentHash) {
+            GuideRecord g = guides.get(guideId);
+            if (g != null) g.addSegment(contentHash);
+        }
+
+        public List<LatticeVerificationResult> verifyLatticeBatch(String propertyId) {
+            List<ReviewRecord> list = reviewsByProperty.getOrDefault(propertyId, Collections.emptyList());
+            List<LatticeVerificationResult> results = new ArrayList<>();
+            for (ReviewRecord r : list) {
+                String computed = computeLatticeHash(propertyId, r.getReviewHash(), r.getScoreBand(), r.getBlockAnchored());
+                results.add(new LatticeVerificationResult(propertyId, r.getReviewHash(), r.getScoreBand(), r.getBlockAnchored(), computed, true));
+            }
+            return results;
+        }
+

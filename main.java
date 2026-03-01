@@ -678,3 +678,88 @@ public final class HotHotelai {
                 p.getListedBy(),
                 p.getCurrentScoreBand(),
                 p.getReviewCount(),
+                p.isFrozen() ? "Yes" : "No"
+            });
+        }
+        statusLabel.setText("Properties: " + propertyModel.getRowCount());
+    }
+
+    private void onPropertySelection() {
+        reviewModel.setRowCount(0);
+        int row = propertyTable.getSelectedRow();
+        if (row < 0) return;
+        String propId = (String) propertyModel.getValueAt(row, 0);
+        for (ReviewRecord r : service.getReviews(propId)) {
+            reviewModel.addRow(new Object[] {
+                r.getReviewHash(),
+                r.getScoreBand(),
+                r.getBlockAnchored(),
+                r.getAnchoredBy()
+            });
+        }
+    }
+
+    private void showAddPropertyDialog() {
+        JPanel panel = new JPanel(new GridLayout(0, 2, 8, 8));
+        JTextField idField = new JTextField(20);
+        JTextField regionField = new JTextField(20);
+        JTextField listerField = new JTextField(20);
+        panel.add(new JLabel("Property ID:"));
+        panel.add(idField);
+        panel.add(new JLabel("Region hash:"));
+        panel.add(regionField);
+        panel.add(new JLabel("Listed by:"));
+        panel.add(listerField);
+        int result = JOptionPane.showConfirmDialog(frame, panel, "Add property", JOptionPane.OK_CANCEL_OPTION);
+        if (result != JOptionPane.OK_OPTION) return;
+        String id = idField.getText().trim();
+        String region = regionField.getText().trim();
+        String lister = listerField.getText().trim();
+        if (id.isEmpty() || region.isEmpty() || lister.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Fill all fields.");
+            return;
+        }
+        if (service.getProperty(id).isPresent()) {
+            JOptionPane.showMessageDialog(frame, "Property already exists.");
+            return;
+        }
+        PropertyRecord p = new PropertyRecord(id, region, lister, System.currentTimeMillis());
+        service.addProperty(p);
+        refreshPropertyTable();
+        JOptionPane.showMessageDialog(frame, "Property added.");
+    }
+
+    private void showAddReviewDialog() {
+        int row = propertyTable.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(frame, "Select a property first.");
+            return;
+        }
+        String propId = (String) propertyModel.getValueAt(row, 0);
+        JPanel panel = new JPanel(new GridLayout(0, 2, 8, 8));
+        JTextField hashField = new JTextField(28);
+        JSpinner bandSpinner = new JSpinner(new SpinnerNumberModel(5, 0, SCORE_BAND_MAX, 1));
+        JTextField anchoredField = new JTextField(20);
+        panel.add(new JLabel("Review hash:"));
+        panel.add(hashField);
+        panel.add(new JLabel("Score band (0-" + SCORE_BAND_MAX + "):"));
+        panel.add(bandSpinner);
+        panel.add(new JLabel("Anchored by:"));
+        panel.add(anchoredField);
+        int result = JOptionPane.showConfirmDialog(frame, panel, "Add review", JOptionPane.OK_CANCEL_OPTION);
+        if (result != JOptionPane.OK_OPTION) return;
+        String hash = hashField.getText().trim();
+        int band = (Integer) bandSpinner.getValue();
+        String anchored = anchoredField.getText().trim();
+        if (hash.isEmpty() || anchored.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Fill hash and anchored by.");
+            return;
+        }
+        ReviewRecord r = new ReviewRecord(hash, band, System.currentTimeMillis(), anchored);
+        service.addReview(propId, r);
+        refreshPropertyTable();
+        onPropertySelection();
+        JOptionPane.showMessageDialog(frame, "Review anchored.");
+    }
+
+    private void showCompareDialog() {

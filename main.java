@@ -338,3 +338,88 @@ public final class HotHotelai {
             return results;
         }
 
+        public void exportCsv(Path path) throws IOException {
+            try (BufferedWriter w = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
+                w.write("propertyId,regionHash,listedBy,blockListed,scoreBand,reviewCount,frozen\n");
+                for (PropertyRecord p : properties.values()) {
+                    w.write(String.format("%s,%s,%s,%d,%d,%d,%s\n",
+                        p.getPropertyId(), p.getRegionHash(), p.getListedBy(), p.getBlockListed(),
+                        p.getCurrentScoreBand(), p.getReviewCount(), p.isFrozen()));
+                }
+            }
+        }
+
+        public int getTotalReviewCount() {
+            return reviewsByProperty.values().stream().mapToInt(List::size).sum();
+        }
+
+        public void clearAll() {
+            properties.clear();
+            reviewsByProperty.clear();
+            comparisons.clear();
+            guides.clear();
+        }
+
+        public String computeLatticeHash(String propertyId, String reviewHash, int scoreBand, long atBlock) {
+            String salt = "Hotelia.HTL_LATTICE_SALT.v2";
+            String input = salt + propertyId + reviewHash + scoreBand + atBlock;
+            return String.valueOf(input.hashCode());
+        }
+
+        public void save() throws IOException {
+            try (ObjectOutputStream oos = new ObjectOutputStream(
+                new FileOutputStream(basePath.resolve(DATA_FILE).toFile()))) {
+                oos.writeObject(new ArrayList<>(properties.values()));
+            }
+            try (ObjectOutputStream oos = new ObjectOutputStream(
+                new FileOutputStream(basePath.resolve(REVIEWS_FILE).toFile()))) {
+                oos.writeObject(new HashMap<>(reviewsByProperty));
+            }
+            try (ObjectOutputStream oos = new ObjectOutputStream(
+                new FileOutputStream(basePath.resolve(COMPARISONS_FILE).toFile()))) {
+                oos.writeObject(new ArrayList<>(comparisons));
+            }
+            Path guidesPath = basePath.resolve("guides.dat");
+            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(guidesPath.toFile()))) {
+                oos.writeObject(new HashMap<>(guides));
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        public void load() throws IOException, ClassNotFoundException {
+            Path dataPath = basePath.resolve(DATA_FILE);
+            if (Files.exists(dataPath)) {
+                try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(dataPath.toFile()))) {
+                    List<PropertyRecord> list = (List<PropertyRecord>) ois.readObject();
+                    properties.clear();
+                    for (PropertyRecord p : list) properties.put(p.getPropertyId(), p);
+                }
+            }
+            Path reviewsPath = basePath.resolve(REVIEWS_FILE);
+            if (Files.exists(reviewsPath)) {
+                try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(reviewsPath.toFile()))) {
+                    reviewsByProperty.clear();
+                    reviewsByProperty.putAll((Map<String, List<ReviewRecord>>) ois.readObject());
+                }
+            }
+            Path compPath = basePath.resolve(COMPARISONS_FILE);
+            if (Files.exists(compPath)) {
+                try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(compPath.toFile()))) {
+                    comparisons.clear();
+                    comparisons.addAll((List<ComparisonSnapshot>) ois.readObject());
+                }
+            }
+            Path guidesPath = basePath.resolve("guides.dat");
+            if (Files.exists(guidesPath)) {
+                try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(guidesPath.toFile()))) {
+                    guides.clear();
+                    guides.putAll((Map<String, GuideRecord>) ois.readObject());
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // MAIN FRAME & UI
+    // -------------------------------------------------------------------------
+

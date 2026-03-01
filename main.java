@@ -508,3 +508,88 @@ public final class HotHotelai {
         propsPanel.add(statusLabel, BorderLayout.PAGE_END);
         tabs.addTab("Properties", propsPanel);
 
+        JPanel compPanel = buildComparisonsPanel();
+        tabs.addTab("Comparisons", compPanel);
+
+        JPanel guidesPanel = buildGuidesPanel();
+        tabs.addTab("Guides", guidesPanel);
+
+        JPanel statsPanel = buildRegionStatsPanel();
+        tabs.addTab("Region stats", statsPanel);
+
+        JPanel aiPanel = buildAICheckerPanel();
+        tabs.addTab("AI review checker", aiPanel);
+
+        JPanel exportPanel = buildExportPanel();
+        tabs.addTab("Export / Import", exportPanel);
+
+        tabs.addTab("Top by score", buildTopPropertiesPanel());
+        tabs.addTab("Traits", buildTraitEditorPanel());
+        tabs.addTab("Lattice export", buildLatticeExportPanel());
+
+        JMenuBar menuBar = new JMenuBar();
+        JMenu menu = new JMenu("Help");
+        JMenuItem aboutItem = new JMenuItem("About");
+        aboutItem.addActionListener(e -> showAbout());
+        JMenuItem helpItem = new JMenuItem("Help");
+        helpItem.addActionListener(e -> showHelp());
+        menu.add(aboutItem);
+        menu.add(helpItem);
+        menu.add(createClearDataMenuItem());
+        menu.add(createLoadSampleMenuItem());
+        menu.add(createDataSummaryMenuItem());
+        menu.add(createContractInfoMenuItem());
+        menuBar.add(menu);
+        frame.setJMenuBar(menuBar);
+
+        main.add(tabs, BorderLayout.CENTER);
+        frame.setContentPane(main);
+        installFrameListener();
+        refreshPropertyTable();
+    }
+
+    private JPanel buildComparisonsPanel() {
+        JPanel p = new JPanel(new BorderLayout(8, 8));
+        DefaultTableModel compModel = new DefaultTableModel(new String[] { "Property A", "Property B", "Diff hash" }, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+        JTable compTable = new JTable(compModel);
+        for (ComparisonSnapshot c : service.getComparisons()) {
+            compModel.addRow(new Object[] { c.getLeftId(), c.getRightId(), c.getDiffHash() });
+        }
+        JButton refreshComp = new JButton("Refresh");
+        refreshComp.addActionListener(e -> {
+            compModel.setRowCount(0);
+            for (ComparisonSnapshot c : service.getComparisons()) {
+                compModel.addRow(new Object[] { c.getLeftId(), c.getRightId(), c.getDiffHash() });
+            }
+        });
+        p.add(new JScrollPane(compTable), BorderLayout.CENTER);
+        p.add(refreshComp, BorderLayout.SOUTH);
+        return p;
+    }
+
+    private JPanel buildGuidesPanel() {
+        JPanel p = new JPanel(new BorderLayout(8, 8));
+        DefaultTableModel guideModel = new DefaultTableModel(new String[] { "Guide ID", "Segments", "Created by" }, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+        for (GuideRecord g : service.getAllGuides()) {
+            guideModel.addRow(new Object[] { g.getGuideId(), g.getSegmentHashes().size(), g.getCreatedBy() });
+        }
+        JTable guideTable = new JTable(guideModel);
+        JButton addGuideBtn = new JButton("Add guide");
+        addGuideBtn.addActionListener(e -> {
+            String id = JOptionPane.showInputDialog(frame, "Guide ID:");
+            if (id != null && !id.trim().isEmpty()) {
+                GuideRecord g = new GuideRecord(id.trim(), System.currentTimeMillis(), "user");
+                service.addGuide(g);
+                guideModel.addRow(new Object[] { g.getGuideId(), 0, g.getCreatedBy() });
+            }
+        });
+        p.add(new JScrollPane(guideTable), BorderLayout.CENTER);
+        p.add(addGuideBtn, BorderLayout.SOUTH);
+        return p;
+    }

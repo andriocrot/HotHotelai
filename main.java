@@ -763,3 +763,88 @@ public final class HotHotelai {
     }
 
     private void showCompareDialog() {
+        int r1 = propertyTable.getSelectedRow();
+        if (r1 < 0) {
+            JOptionPane.showMessageDialog(frame, "Select first property.");
+            return;
+        }
+        String id1 = (String) propertyModel.getValueAt(r1, 0);
+        JPanel panel = new JPanel(new GridLayout(0, 2, 8, 8));
+        JTextField id2Field = new JTextField(24);
+        JTextField diffField = new JTextField(32);
+        panel.add(new JLabel("Property A:"));
+        panel.add(new JLabel(id1));
+        panel.add(new JLabel("Property B ID:"));
+        panel.add(id2Field);
+        panel.add(new JLabel("Diff hash:"));
+        panel.add(diffField);
+        int result = JOptionPane.showConfirmDialog(frame, panel, "Compare hotels", JOptionPane.OK_CANCEL_OPTION);
+        if (result != JOptionPane.OK_OPTION) return;
+        String id2 = id2Field.getText().trim();
+        String diff = diffField.getText().trim();
+        if (id2.isEmpty()) return;
+        if (id1.equals(id2)) {
+            JOptionPane.showMessageDialog(frame, "Choose different properties.");
+            return;
+        }
+        if (service.getProperty(id2).isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Property B not found.");
+            return;
+        }
+        service.addComparison(new ComparisonSnapshot(id1, id2, diff));
+        JOptionPane.showMessageDialog(frame, "Comparison snapshot recorded.");
+    }
+
+    private void saveData() {
+        try {
+            service.save();
+            statusLabel.setText("Saved at " + LocalDateTime.now().format(FMT));
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(frame, "Save failed: " + e.getMessage());
+        }
+    }
+
+    public void run() {
+        SwingUtilities.invokeLater(() -> {
+            buildUI();
+            frame.setVisible(true);
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // ENTRY
+    // -------------------------------------------------------------------------
+
+    // -------------------------------------------------------------------------
+    // VALIDATORS & HELPERS
+    // -------------------------------------------------------------------------
+
+    private static boolean isValidPropertyId(String id) {
+        return id != null && id.length() >= 1 && id.length() <= 128 && !id.contains(",");
+    }
+
+    private static boolean isValidRegionHash(String h) {
+        return h != null && h.length() >= 1 && h.length() <= 64;
+    }
+
+    private static boolean isValidScoreBand(int band) {
+        return band >= 0 && band <= SCORE_BAND_MAX;
+    }
+
+    private static String formatBlock(long block) {
+        return Instant.ofEpochMilli(block).atZone(ZoneId.systemDefault()).format(FMT);
+    }
+
+    private static String truncateHash(String hash, int maxLen) {
+        if (hash == null) return "";
+        return hash.length() <= maxLen ? hash : hash.substring(0, maxLen) + "...";
+    }
+
+    private static List<String> getRegionFilterOptions() {
+        List<String> opts = new ArrayList<>();
+        opts.add("<All regions>");
+        opts.addAll(service.getAllRegions().stream().sorted().collect(Collectors.toList()));
+        return opts;
+    }
+
+    private void refreshRegionFilter() {

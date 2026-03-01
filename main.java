@@ -848,3 +848,88 @@ public final class HotHotelai {
     }
 
     private void refreshRegionFilter() {
+        String selected = (String) regionFilter.getSelectedItem();
+        regionFilter.removeAllItems();
+        for (String s : getRegionFilterOptions()) regionFilter.addItem(s);
+        if (selected != null) regionFilter.setSelectedItem(selected);
+    }
+
+    private JPanel buildTopPropertiesPanel() {
+        JPanel p = new JPanel(new BorderLayout(8, 8));
+        JComboBox<String> regionCombo = new JComboBox<>();
+        regionCombo.addItem("<Select region>");
+        for (String r : service.getAllRegions()) regionCombo.addItem(r);
+        JSpinner limitSpinner = new JSpinner(new SpinnerNumberModel(10, 1, 100, 1));
+        DefaultTableModel topModel = new DefaultTableModel(new String[] { "Property ID", "Region", "Score band", "Reviews" }, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+        JTable topTable = new JTable(topModel);
+        JButton loadTop = new JButton("Load top by score");
+        loadTop.addActionListener(e -> {
+            String region = (String) regionCombo.getSelectedItem();
+            if (region == null || region.equals("<Select region>")) return;
+            int limit = (Integer) limitSpinner.getValue();
+            topModel.setRowCount(0);
+            for (PropertyRecord pr : service.getTopByScoreBand(region, limit)) {
+                topModel.addRow(new Object[] { pr.getPropertyId(), pr.getRegionHash(), pr.getCurrentScoreBand(), pr.getReviewCount() });
+            }
+        });
+        JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        topBar.add(new JLabel("Region:"));
+        topBar.add(regionCombo);
+        topBar.add(new JLabel("Limit:"));
+        topBar.add(limitSpinner);
+        topBar.add(loadTop);
+        p.add(topBar, BorderLayout.NORTH);
+        p.add(new JScrollPane(topTable), BorderLayout.CENTER);
+        return p;
+    }
+
+    private JPanel buildTraitEditorPanel() {
+        JPanel inner = new JPanel(new GridLayout(0, 2, 8, 8));
+        inner.add(new JLabel("Property ID:"));
+        JTextField propIdTrait = new JTextField(24);
+        inner.add(propIdTrait);
+        inner.add(new JLabel("Trait key:"));
+        JTextField keyField = new JTextField(20);
+        inner.add(keyField);
+        inner.add(new JLabel("Trait value:"));
+        JTextField valueField = new JTextField(20);
+        inner.add(valueField);
+        JButton setTrait = new JButton("Set trait");
+        setTrait.addActionListener(e -> {
+            Optional<PropertyRecord> opt = service.getProperty(propIdTrait.getText().trim());
+            if (opt.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "Property not found.");
+                return;
+            }
+            opt.get().getTraits().put(keyField.getText().trim(), valueField.getText().trim());
+            JOptionPane.showMessageDialog(frame, "Trait set.");
+        });
+        inner.add(setTrait);
+        inner.add(new JLabel(""));
+        JPanel wrap = new JPanel(new BorderLayout());
+        wrap.add(inner, BorderLayout.NORTH);
+        return wrap;
+    }
+
+    private JPanel buildLatticeExportPanel() {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
+        JTextField exportPropId = new JTextField(28);
+        JButton exportLattice = new JButton("Export lattice hashes (CSV)");
+        exportLattice.addActionListener(e -> {
+            String id = exportPropId.getText().trim();
+            if (id.isEmpty()) return;
+            JFileChooser fc = new JFileChooser();
+            if (fc.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) return;
+            try (BufferedWriter w = Files.newBufferedWriter(fc.getSelectedFile().toPath(), StandardCharsets.UTF_8)) {
+                w.write("reviewHash,scoreBand,blockAnchored,computedLatticeHash\n");
+                for (LatticeVerificationResult r : service.verifyLatticeBatch(id)) {
+                    w.write(String.format("%s,%d,%d,%s\n", r.getReviewHash(), r.getScoreBand(), r.getAtBlock(), r.getComputedHash()));
+                }
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(frame, "Export failed: " + ex.getMessage());
+            }
+        });
+        p.add(new JLabel("Property ID:"));

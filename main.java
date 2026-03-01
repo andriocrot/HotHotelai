@@ -1018,3 +1018,88 @@ public final class HotHotelai {
         return service.getAllGuides().size();
     }
 
+    private Optional<Double> getAverageScoreForProperty(String propertyId) {
+        List<ReviewRecord> list = service.getReviews(propertyId);
+        if (list.isEmpty()) return Optional.empty();
+        return Optional.of(list.stream().mapToInt(ReviewRecord::getScoreBand).average().orElse(0.0));
+    }
+
+    private Optional<Integer> getMedianScoreForProperty(String propertyId) {
+        List<ReviewRecord> list = service.getReviews(propertyId);
+        if (list.isEmpty()) return Optional.empty();
+        int[] bands = list.stream().mapToInt(ReviewRecord::getScoreBand).sorted().toArray();
+        int mid = bands.length / 2;
+        return Optional.of(bands.length % 2 == 1 ? bands[mid] : (bands[mid - 1] + bands[mid]) / 2);
+    }
+
+    private Map<Integer, Long> getScoreBandDistribution(String propertyId) {
+        Map<Integer, Long> dist = new LinkedHashMap<>();
+        for (int i = 0; i <= SCORE_BAND_MAX; i++) dist.put(i, 0L);
+        for (ReviewRecord r : service.getReviews(propertyId)) {
+            int b = r.getScoreBand();
+            if (b >= 0 && b <= SCORE_BAND_MAX) dist.put(b, dist.get(b) + 1);
+        }
+        return dist;
+    }
+
+    private String computePairKey(String leftId, String rightId) {
+        return String.valueOf(Objects.hash(leftId, rightId));
+    }
+
+    private boolean hasComparisonBetween(String leftId, String rightId) {
+        return service.getComparison(leftId, rightId).isPresent();
+    }
+
+    private List<PropertyRecord> getPropertiesByLister(String lister) {
+        return service.getAllProperties().stream()
+            .filter(p -> lister.equals(p.getListedBy()))
+            .collect(Collectors.toList());
+    }
+
+    private int getPropertyCountForLister(String lister) {
+        return getPropertiesByLister(lister).size();
+    }
+
+    private List<String> getDistinctListers() {
+        return service.getAllProperties().stream()
+            .map(PropertyRecord::getListedBy)
+            .distinct()
+            .sorted()
+            .collect(Collectors.toList());
+    }
+
+    private long getOldestBlockListed() {
+        return service.getAllProperties().stream()
+            .mapToLong(PropertyRecord::getBlockListed)
+            .min()
+            .orElse(0L);
+    }
+
+    private long getNewestBlockListed() {
+        return service.getAllProperties().stream()
+            .mapToLong(PropertyRecord::getBlockListed)
+            .max()
+            .orElse(0L);
+    }
+
+    private PropertyRecord getHighestScoringProperty() {
+        return service.getAllProperties().stream()
+            .max(Comparator.comparingInt(PropertyRecord::getCurrentScoreBand))
+            .orElse(null);
+    }
+
+    private PropertyRecord getMostReviewedProperty() {
+        return service.getAllProperties().stream()
+            .max(Comparator.comparingInt(PropertyRecord::getReviewCount))
+            .orElse(null);
+    }
+
+    private List<GuideRecord> getGuidesByCreator(String createdBy) {
+        return service.getAllGuides().stream()
+            .filter(g -> createdBy.equals(g.getCreatedBy()))
+            .collect(Collectors.toList());
+    }
+
+    private int getTotalGuideSegments() {
+        return service.getAllGuides().stream()
+            .mapToInt(g -> g.getSegmentHashes().size())

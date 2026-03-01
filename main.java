@@ -933,3 +933,88 @@ public final class HotHotelai {
             }
         });
         p.add(new JLabel("Property ID:"));
+        p.add(exportPropId);
+        p.add(exportLattice);
+        return p;
+    }
+
+    private static final String ABOUT_TEXT = "HotHotelai — Hotel comparison and guide driven by AI review checker.\n"
+        + "Properties, reviews, and comparison snapshots are stored locally.\n"
+        + "Lattice hashes can be verified for review integrity.\n"
+        + "Max properties: " + MAX_PROPERTIES + ", max reviews per property: " + MAX_REVIEWS_PER_PROPERTY + ", score band 0-" + SCORE_BAND_MAX + ".";
+
+    private void showAbout() {
+        JOptionPane.showMessageDialog(frame, ABOUT_TEXT, "About " + APP_TITLE, JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void showHelp() {
+        JOptionPane.showMessageDialog(frame,
+            "Properties tab: Add/list properties, select one to see reviews. Add review anchors a score.\n"
+            + "Comparisons: Record diff hashes between two properties.\n"
+            + "Guides: Create guides and append segment content hashes.\n"
+            + "Region stats: Aggregate counts and average scores per region.\n"
+            + "AI checker: Verify lattice hashes for a property's reviews.\n"
+            + "Export: Save properties to CSV or persist all data.",
+            "Help", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private static String getTraitAmenityKey() { return TRAIT_AMENITY; }
+    private static String getTraitPriceTierKey() { return TRAIT_PRICE_TIER; }
+    private static String getTraitStarRatingKey() { return TRAIT_STAR_RATING; }
+    private static String getTraitChainIdKey() { return TRAIT_CHAIN_ID; }
+    private static String getTraitLocaleKey() { return TRAIT_LOCALE; }
+    private static String getTraitAiSummaryKey() { return TRAIT_AI_SUMMARY; }
+    private static int getMaxBatchList() { return MAX_BATCH_LIST; }
+    private static int getMaxBatchReview() { return MAX_BATCH_REVIEW; }
+    private static int getMaxGuideSegments() { return MAX_GUIDE_SEGMENTS; }
+    private static int getMaxPageSize() { return MAX_PAGE_SIZE; }
+    private static String getLatticeSalt() { return LATTICE_SALT; }
+    private static String getGuideAnchor() { return GUIDE_ANCHOR; }
+    private static String[] getDefaultRegions() { return DEFAULT_REGIONS.clone(); }
+
+    private List<PropertyRecord> getPropertiesWithMinReviews(int minReviews) {
+        return service.getAllProperties().stream()
+            .filter(p -> p.getReviewCount() >= minReviews)
+            .collect(Collectors.toList());
+    }
+
+    private List<PropertyRecord> getPropertiesListedAfter(long fromBlock) {
+        return service.getAllProperties().stream()
+            .filter(p -> p.getBlockListed() >= fromBlock)
+            .collect(Collectors.toList());
+    }
+
+    private void ensureDefaultRegionsInFilter() {
+        Set<String> existing = new HashSet<>();
+        for (int i = 0; i < regionFilter.getItemCount(); i++) {
+            existing.add((String) regionFilter.getItemAt(i));
+        }
+        for (String r : DEFAULT_REGIONS) {
+            if (!existing.contains(r)) regionFilter.addItem(r);
+        }
+    }
+
+    private String formatScoreBand(int band) {
+        return band + " / " + SCORE_BAND_MAX;
+    }
+
+    private String formatReviewCount(int count) {
+        return count + " review" + (count == 1 ? "" : "s");
+    }
+
+    private boolean canAddMoreProperties() {
+        return service.getAllProperties().size() < MAX_PROPERTIES;
+    }
+
+    private boolean canAddMoreReviews(String propertyId) {
+        return service.getReviews(propertyId).size() < MAX_REVIEWS_PER_PROPERTY;
+    }
+
+    private int getTotalComparisonsCount() {
+        return service.getComparisons().size();
+    }
+
+    private int getTotalGuidesCount() {
+        return service.getAllGuides().size();
+    }
+

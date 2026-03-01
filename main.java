@@ -83,3 +83,88 @@ public final class HotHotelai {
         public Map<String, String> getTraits() { return traits; }
     }
 
+    public static final class ReviewRecord implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String reviewHash;
+        private final int scoreBand;
+        private final long blockAnchored;
+        private final String anchoredBy;
+
+        public ReviewRecord(String reviewHash, int scoreBand, long blockAnchored, String anchoredBy) {
+            this.reviewHash = reviewHash;
+            this.scoreBand = Math.min(SCORE_BAND_MAX, Math.max(0, scoreBand));
+            this.blockAnchored = blockAnchored;
+            this.anchoredBy = anchoredBy;
+        }
+
+        public String getReviewHash() { return reviewHash; }
+        public int getScoreBand() { return scoreBand; }
+        public long getBlockAnchored() { return blockAnchored; }
+        public String getAnchoredBy() { return anchoredBy; }
+    }
+
+    public static final class ComparisonSnapshot implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String leftId;
+        private final String rightId;
+        private final String diffHash;
+
+        public ComparisonSnapshot(String leftId, String rightId, String diffHash) {
+            this.leftId = leftId;
+            this.rightId = rightId;
+            this.diffHash = diffHash;
+        }
+
+        public String getLeftId() { return leftId; }
+        public String getRightId() { return rightId; }
+        public String getDiffHash() { return diffHash; }
+    }
+
+    public static final class GuideSegment implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String guideId;
+        private final int segmentIndex;
+        private final String contentHash;
+
+        public GuideSegment(String guideId, int segmentIndex, String contentHash) {
+            this.guideId = guideId;
+            this.segmentIndex = segmentIndex;
+            this.contentHash = contentHash;
+        }
+
+        public String getGuideId() { return guideId; }
+        public int getSegmentIndex() { return segmentIndex; }
+        public String getContentHash() { return contentHash; }
+    }
+
+    public static final class RegionStats implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String regionHash;
+        private final int propertyCount;
+        private final double avgScoreBand;
+        private final int totalReviews;
+
+        public RegionStats(String regionHash, int propertyCount, double avgScoreBand, int totalReviews) {
+            this.regionHash = regionHash;
+            this.propertyCount = propertyCount;
+            this.avgScoreBand = avgScoreBand;
+            this.totalReviews = totalReviews;
+        }
+        public String getRegionHash() { return regionHash; }
+        public int getPropertyCount() { return propertyCount; }
+        public double getAvgScoreBand() { return avgScoreBand; }
+        public int getTotalReviews() { return totalReviews; }
+    }
+
+    public static final class LatticeVerificationResult implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String propertyId;
+        private final String reviewHash;
+        private final int scoreBand;
+        private final long atBlock;
+        private final String computedHash;
+        private final boolean valid;
+
+        public LatticeVerificationResult(String propertyId, String reviewHash, int scoreBand, long atBlock, String computedHash, boolean valid) {
+            this.propertyId = propertyId;
+            this.reviewHash = reviewHash;

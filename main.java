@@ -423,3 +423,88 @@ public final class HotHotelai {
     // MAIN FRAME & UI
     // -------------------------------------------------------------------------
 
+    private final PropertyService service;
+    private JFrame frame;
+    private JTable propertyTable;
+    private DefaultTableModel propertyModel;
+    private JTable reviewTable;
+    private DefaultTableModel reviewModel;
+    private JComboBox<String> regionFilter;
+    private JTextField searchField;
+    private JLabel statusLabel;
+
+    public HotHotelai() {
+        this.service = new PropertyService();
+        try {
+            service.load();
+        } catch (Exception e) {
+            System.err.println("Load warning: " + e.getMessage());
+        }
+    }
+
+    private void buildUI() {
+        frame = new JFrame(APP_TITLE + " — Hotel comparison & AI review checker");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(1200, 720);
+        frame.setLocationRelativeTo(null);
+
+        JPanel main = new JPanel(new BorderLayout(12, 12));
+        main.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+
+        JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
+        searchField = new JTextField(24);
+        searchField.setToolTipText("Search property ID or region");
+        regionFilter = new JComboBox<>(new String[] { "<All regions>", "region-eu-1", "region-us-1", "region-asia-1" });
+        JButton refreshBtn = new JButton("Refresh");
+        refreshBtn.addActionListener(e -> refreshPropertyTable());
+        JButton addPropBtn = new JButton("Add property");
+        addPropBtn.addActionListener(e -> showAddPropertyDialog());
+        JButton addReviewBtn = new JButton("Add review");
+        addReviewBtn.addActionListener(e -> showAddReviewDialog());
+        JButton compareBtn = new JButton("Compare");
+        compareBtn.addActionListener(e -> showCompareDialog());
+        JButton saveBtn = new JButton("Save");
+        saveBtn.addActionListener(e -> saveData());
+        topBar.add(new JLabel("Search:"));
+        topBar.add(searchField);
+        topBar.add(regionFilter);
+        topBar.add(refreshBtn);
+        topBar.add(addPropBtn);
+        topBar.add(addReviewBtn);
+        topBar.add(compareBtn);
+        topBar.add(saveBtn);
+        topBar.add(createSearchSelectButton());
+
+        propertyModel = new DefaultTableModel(
+            new String[] { "Property ID", "Region", "Listed by", "Score band", "Reviews", "Frozen" }, 0) {
+            @Override
+            public boolean isCellEditable(int row, int col) { return false; }
+        };
+        propertyTable = new JTable(propertyModel);
+        propertyTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        propertyTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) onPropertySelection();
+        });
+        JScrollPane propScroll = new JScrollPane(propertyTable);
+        propScroll.setPreferredSize(new Dimension(0, 220));
+
+        reviewModel = new DefaultTableModel(
+            new String[] { "Review hash", "Score band", "Block", "Anchored by" }, 0) {
+            @Override
+            public boolean isCellEditable(int row, int col) { return false; }
+        };
+        reviewTable = new JTable(reviewModel);
+        JScrollPane reviewScroll = new JScrollPane(reviewTable);
+        reviewScroll.setPreferredSize(new Dimension(0, 180));
+
+        statusLabel = new JLabel("Ready. Properties: " + service.getAllProperties().size());
+        statusLabel.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
+
+        JTabbedPane tabs = new JTabbedPane();
+        JPanel propsPanel = new JPanel(new BorderLayout(8, 8));
+        propsPanel.add(topBar, BorderLayout.NORTH);
+        propsPanel.add(propScroll, BorderLayout.CENTER);
+        propsPanel.add(reviewScroll, BorderLayout.SOUTH);
+        propsPanel.add(statusLabel, BorderLayout.PAGE_END);
+        tabs.addTab("Properties", propsPanel);
+

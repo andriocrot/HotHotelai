@@ -168,3 +168,88 @@ public final class HotHotelai {
         public LatticeVerificationResult(String propertyId, String reviewHash, int scoreBand, long atBlock, String computedHash, boolean valid) {
             this.propertyId = propertyId;
             this.reviewHash = reviewHash;
+            this.scoreBand = scoreBand;
+            this.atBlock = atBlock;
+            this.computedHash = computedHash;
+            this.valid = valid;
+        }
+        public String getPropertyId() { return propertyId; }
+        public String getReviewHash() { return reviewHash; }
+        public int getScoreBand() { return scoreBand; }
+        public long getAtBlock() { return atBlock; }
+        public String getComputedHash() { return computedHash; }
+        public boolean isValid() { return valid; }
+    }
+
+    public static final class GuideRecord implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String guideId;
+        private final List<String> segmentHashes;
+        private final long createdAt;
+        private final String createdBy;
+
+        public GuideRecord(String guideId, long createdAt, String createdBy) {
+            this.guideId = guideId;
+            this.segmentHashes = new ArrayList<>();
+            this.createdAt = createdAt;
+            this.createdBy = createdBy;
+        }
+        public String getGuideId() { return guideId; }
+        public List<String> getSegmentHashes() { return segmentHashes; }
+        public long getCreatedAt() { return createdAt; }
+        public String getCreatedBy() { return createdBy; }
+        public void addSegment(String contentHash) { segmentHashes.add(contentHash); }
+    }
+
+    // -------------------------------------------------------------------------
+    // SERVICE LAYER
+    // -------------------------------------------------------------------------
+
+    public static final class PropertyService {
+        private final Map<String, PropertyRecord> properties = new LinkedHashMap<>();
+        private final Map<String, List<ReviewRecord>> reviewsByProperty = new LinkedHashMap<>();
+        private final List<ComparisonSnapshot> comparisons = new ArrayList<>();
+        private final Map<String, GuideRecord> guides = new LinkedHashMap<>();
+        private final Path basePath;
+
+        public PropertyService() {
+            Path userHome = Paths.get(System.getProperty("user.home"));
+            this.basePath = userHome.resolve(CONFIG_DIR);
+            try {
+                Files.createDirectories(basePath);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        public void addProperty(PropertyRecord p) {
+            if (properties.size() >= MAX_PROPERTIES) throw new IllegalStateException("Max properties reached");
+            properties.put(p.getPropertyId(), p);
+            reviewsByProperty.putIfAbsent(p.getPropertyId(), new ArrayList<>());
+        }
+
+        public Optional<PropertyRecord> getProperty(String propertyId) {
+            return Optional.ofNullable(properties.get(propertyId));
+        }
+
+        public List<PropertyRecord> getAllProperties() {
+            return new ArrayList<>(properties.values());
+        }
+
+        public List<PropertyRecord> getPropertiesByRegion(String regionHash) {
+            return properties.values().stream()
+                .filter(p -> regionHash.equals(p.getRegionHash()))
+                .collect(Collectors.toList());
+        }
+
+        public void addReview(String propertyId, ReviewRecord r) {
+            PropertyRecord p = properties.get(propertyId);
+            if (p == null) throw new IllegalArgumentException("Property not found: " + propertyId);
+            List<ReviewRecord> list = reviewsByProperty.get(propertyId);
+            if (list.size() >= MAX_REVIEWS_PER_PROPERTY) throw new IllegalStateException("Max reviews per property");
+            list.add(r);
+            p.setReviewCount(list.size());
+            p.setCurrentScoreBand(r.getScoreBand());
+        }
+
+        public List<ReviewRecord> getReviews(String propertyId) {

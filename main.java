@@ -1273,3 +1273,88 @@ public final class HotHotelai {
     private boolean confirmClearAllData() {
         return JOptionPane.showConfirmDialog(frame, "Clear all properties, reviews, comparisons and guides? This cannot be undone.", "Confirm clear", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION;
     }
+
+    private void clearAllDataIfConfirmed() {
+        if (!confirmClearAllData()) return;
+        service.clearAll();
+        refreshPropertyTable();
+        statusLabel.setText("Data cleared.");
+        JOptionPane.showMessageDialog(frame, "Data cleared. Use Save to persist.");
+    }
+
+    private JMenuItem createClearDataMenuItem() {
+        JMenuItem item = new JMenuItem("Clear all data");
+        item.addActionListener(e -> clearAllDataIfConfirmed());
+        return item;
+    }
+
+    private static long parseBlockOrZero(String s) {
+        try {
+            return Long.parseLong(s.trim());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
+    }
+
+    private static int parseScoreBandOrZero(String s) {
+        try {
+            int n = Integer.parseInt(s.trim());
+            return Math.max(0, Math.min(SCORE_BAND_MAX, n));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private Optional<PropertyRecord> findPropertyByPartialId(String partial) {
+        String lower = partial.toLowerCase();
+        return service.getAllProperties().stream()
+            .filter(p -> p.getPropertyId().toLowerCase().contains(lower))
+            .findFirst();
+    }
+
+    private List<PropertyRecord> findAllPropertiesByPartialId(String partial) {
+        String lower = partial.toLowerCase();
+        return service.getAllProperties().stream()
+            .filter(p -> p.getPropertyId().toLowerCase().contains(lower))
+            .collect(Collectors.toList());
+    }
+
+    private void selectFirstPropertyMatchingSearch() {
+        String q = searchField.getText().trim();
+        if (q.isEmpty()) return;
+        for (int i = 0; i < propertyModel.getRowCount(); i++) {
+            String id = (String) propertyModel.getValueAt(i, 0);
+            if (id != null && id.toLowerCase().contains(q.toLowerCase())) {
+                propertyTable.setRowSelectionInterval(i, i);
+                onPropertySelection();
+                return;
+            }
+        }
+    }
+
+    private JButton createSearchSelectButton() {
+        JButton b = new JButton("Select first match");
+        b.addActionListener(e -> selectFirstPropertyMatchingSearch());
+        return b;
+    }
+
+    private String getAppTitle() { return APP_TITLE; }
+    private int getMaxProperties() { return MAX_PROPERTIES; }
+    private int getMaxReviewsPerProperty() { return MAX_REVIEWS_PER_PROPERTY; }
+    private int getScoreBandMax() { return SCORE_BAND_MAX; }
+    private Path getConfigPath() { return service != null ? Paths.get(System.getProperty("user.home")).resolve(CONFIG_DIR) : null; }
+
+    private static final class ScoreBandStats {
+        final int band;
+        final long count;
+        ScoreBandStats(int band, long count) { this.band = band; this.count = count; }
+        int getBand() { return band; }
+        long getCount() { return count; }
+    }
+
+    private List<ScoreBandStats> getScoreBandStatsForProperty(String propertyId) {
+        Map<Integer, Long> dist = getScoreBandDistribution(propertyId);
+        return dist.entrySet().stream()
+            .map(e -> new ScoreBandStats(e.getKey(), e.getValue()))
+            .sorted(Comparator.comparingInt(ScoreBandStats::getBand))
+            .collect(Collectors.toList());

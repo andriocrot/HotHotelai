@@ -1358,3 +1358,88 @@ public final class HotHotelai {
             .map(e -> new ScoreBandStats(e.getKey(), e.getValue()))
             .sorted(Comparator.comparingInt(ScoreBandStats::getBand))
             .collect(Collectors.toList());
+    }
+
+    private String formatScoreBandDistribution(String propertyId) {
+        List<ScoreBandStats> stats = getScoreBandStatsForProperty(propertyId);
+        StringBuilder sb = new StringBuilder();
+        for (ScoreBandStats s : stats) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(s.getBand()).append(":").append(s.getCount());
+        }
+        return sb.toString();
+    }
+
+    private JLabel createScoreDistributionLabel(String propertyId) {
+        return new JLabel(formatScoreBandDistribution(propertyId));
+    }
+
+    private void appendGuideSegmentToGuide(String guideId, String contentHash) {
+        service.addGuideSegment(guideId, contentHash);
+    }
+
+    private Optional<GuideRecord> findGuideById(String guideId) {
+        return service.getGuide(guideId);
+    }
+
+    private int getSegmentCountForGuide(String guideId) {
+        return service.getGuide(guideId).map(g -> g.getSegmentHashes().size()).orElse(0);
+    }
+
+    private static String generatePlaceholderPropertyId() {
+        return "prop-" + System.currentTimeMillis();
+    }
+
+    private static String generatePlaceholderReviewHash() {
+        return "rev-" + UUID.randomUUID().toString().replace("-", "").substring(0, 24);
+    }
+
+    private void addSamplePropertyIfEmpty() {
+        if (!service.getAllProperties().isEmpty()) return;
+        PropertyRecord p = new PropertyRecord(generatePlaceholderPropertyId(), DEFAULT_REGIONS[0], "system", System.currentTimeMillis());
+        service.addProperty(p);
+        refreshPropertyTable();
+    }
+
+    private boolean hasAnyData() {
+        return !service.getAllProperties().isEmpty() || service.getTotalReviewCount() > 0
+            || !service.getComparisons().isEmpty() || !service.getAllGuides().isEmpty();
+    }
+
+    private String getDataSummaryText() {
+        return String.format("Properties: %d, Reviews: %d, Comparisons: %d, Guides: %d, Guide segments: %d",
+            service.getAllProperties().size(), service.getTotalReviewCount(), getTotalComparisonsCount(),
+            getTotalGuidesCount(), getTotalGuideSegments());
+    }
+
+    private void showDataSummary() {
+        JOptionPane.showMessageDialog(frame, getDataSummaryText(), "Data summary", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private JMenuItem createDataSummaryMenuItem() {
+        JMenuItem item = new JMenuItem("Data summary");
+        item.addActionListener(e -> showDataSummary());
+        return item;
+    }
+
+    private static final String VERSION = "1.0.0";
+
+    private static String getVersion() { return VERSION; }
+
+    private void showVersionInTitle() {
+        frame.setTitle(APP_TITLE + " — v" + getVersion());
+    }
+
+    private static final String[] SAMPLE_PROPERTY_IDS = { "hotel-alpha-01", "hotel-beta-02", "hotel-gamma-03" };
+    private static final String[] SAMPLE_REGIONS = { "region-eu-1", "region-us-1", "region-asia-1" };
+
+    private void loadSampleDataIfRequested() {
+        if (JOptionPane.showConfirmDialog(frame, "Load sample properties?", "Sample data", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
+        for (int i = 0; i < SAMPLE_PROPERTY_IDS.length; i++) {
+            if (service.getProperty(SAMPLE_PROPERTY_IDS[i]).isEmpty()) {
+                PropertyRecord p = new PropertyRecord(SAMPLE_PROPERTY_IDS[i], SAMPLE_REGIONS[i % SAMPLE_REGIONS.length], "sample", System.currentTimeMillis());
+                p.setCurrentScoreBand(5 + (i % 4));
+                p.setReviewCount(i * 2);
+                service.addProperty(p);
+            }
+        }

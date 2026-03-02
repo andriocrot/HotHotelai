@@ -1443,3 +1443,88 @@ public final class HotHotelai {
                 service.addProperty(p);
             }
         }
+        refreshPropertyTable();
+        JOptionPane.showMessageDialog(frame, "Sample properties added.");
+    }
+
+    private JMenuItem createLoadSampleMenuItem() {
+        JMenuItem item = new JMenuItem("Load sample data");
+        item.addActionListener(e -> loadSampleDataIfRequested());
+        return item;
+    }
+
+    private static final String CONTRACT_NAME = "Hotelia";
+    private static final String CONTRACT_DESCRIPTION = "Lattice-backed hotel comparison and guide; scores and traits anchored for AI review verification.";
+    private static final int HTL_MAX_PROPERTIES_CONTRACT = 88_000;
+    private static final int HTL_MAX_BATCH_LIST_CONTRACT = 75;
+    private static final int HTL_MAX_BATCH_REVIEW_CONTRACT = 50;
+
+    private String getContractName() { return CONTRACT_NAME; }
+    private String getContractDescription() { return CONTRACT_DESCRIPTION; }
+    private int getContractMaxProperties() { return HTL_MAX_PROPERTIES_CONTRACT; }
+    private int getContractMaxBatchList() { return HTL_MAX_BATCH_LIST_CONTRACT; }
+    private int getContractMaxBatchReview() { return HTL_MAX_BATCH_REVIEW_CONTRACT; }
+
+    private void showContractInfo() {
+        JOptionPane.showMessageDialog(frame,
+            getContractName() + "\n" + getContractDescription() + "\nMax properties: " + getContractMaxProperties()
+                + "\nMax batch list: " + getContractMaxBatchList() + "\nMax batch review: " + getContractMaxBatchReview(),
+            "Contract info", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private JMenuItem createContractInfoMenuItem() {
+        JMenuItem item = new JMenuItem("Contract info");
+        item.addActionListener(e -> showContractInfo());
+        return item;
+    }
+
+    private static String sanitizePropertyId(String id) {
+        if (id == null) return "";
+        return id.trim().replace(",", "").replace("\n", "").replace("\r", "");
+    }
+
+    private static String sanitizeRegionHash(String h) {
+        if (h == null) return "";
+        return h.trim();
+    }
+
+    private boolean validatePropertyBeforeAdd(String id, String region, String lister) {
+        return isValidPropertyId(sanitizePropertyId(id)) && isValidRegionHash(sanitizeRegionHash(region)) && lister != null && !lister.trim().isEmpty();
+    }
+
+    private Optional<String> validatePropertyId(String id) {
+        String s = sanitizePropertyId(id);
+        if (s.isEmpty()) return Optional.of("Property ID is empty.");
+        if (s.length() > 128) return Optional.of("Property ID too long.");
+        if (service.getProperty(s).isPresent()) return Optional.of("Property already exists.");
+        return Optional.empty();
+    }
+
+    private void applyThemeToTable(JTable table) {
+        table.setRowHeight(Math.max(20, table.getRowHeight()));
+        table.setShowGrid(true);
+        table.setGridColor(Color.LIGHT_GRAY);
+    }
+
+    private void applyThemeToAllTables() {
+        applyThemeToTable(propertyTable);
+        applyThemeToTable(reviewTable);
+    }
+
+    private static final int WINDOW_MIN_WIDTH = 900;
+    private static final int WINDOW_MIN_HEIGHT = 600;
+
+    private void enforceMinimumWindowSize() {
+        frame.setMinimumSize(new Dimension(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT));
+    }
+
+    private void onFrameShown() {
+        showVersionInTitle();
+        enforceMinimumWindowSize();
+        applyThemeToAllTables();
+        updateStatusWithStats();
+    }
+
+    private void installFrameListener() {
+        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override

@@ -1188,3 +1188,88 @@ public final class HotHotelai {
                 int c = compareValues(oa, ob);
                 return ascending ? c : -c;
             });
+            model.setRowCount(0);
+            for (Vector<Object> row : rows) model.addRow(row);
+        }
+
+        @SuppressWarnings("unchecked")
+        private static int compareValues(Object a, Object b) {
+            if (a == null && b == null) return 0;
+            if (a == null) return -1;
+            if (b == null) return 1;
+            if (a instanceof Comparable && b instanceof Comparable) {
+                return ((Comparable<Object>) a).compareTo(b);
+            }
+            return String.valueOf(a).compareTo(String.valueOf(b));
+        }
+    }
+
+    private void sortPropertyTableByColumn(int columnIndex) {
+        TableSorter sorter = new TableSorter(propertyModel, columnIndex, true);
+        sorter.sort();
+    }
+
+    private void sortPropertyTableByScoreDescending() {
+        sortPropertyTableByColumn(3);
+    }
+
+    private void sortPropertyTableByReviewCountDescending() {
+        sortPropertyTableByColumn(4);
+    }
+
+    private JPanel buildSortControlsPanel() {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 6));
+        JButton byScore = new JButton("Sort by score");
+        byScore.addActionListener(e -> sortPropertyTableByScoreDescending());
+        JButton byReviews = new JButton("Sort by review count");
+        byReviews.addActionListener(e -> sortPropertyTableByReviewCountDescending());
+        p.add(byScore);
+        p.add(byReviews);
+        return p;
+    }
+
+    private static String padRight(String s, int width) {
+        if (s == null) s = "";
+        return s.length() >= width ? s.substring(0, width) : s + " ".repeat(width - s.length());
+    }
+
+    private static String padLeft(String s, int width) {
+        if (s == null) s = "";
+        return s.length() >= width ? s.substring(0, width) : " ".repeat(width - s.length()) + s;
+    }
+
+    private String formatPropertySummary(PropertyRecord p) {
+        return String.format("%s | %s | score=%d reviews=%d", padRight(p.getPropertyId(), 24), p.getRegionHash(), p.getCurrentScoreBand(), p.getReviewCount());
+    }
+
+    private List<String> formatAllPropertySummaries() {
+        return service.getAllProperties().stream().map(this::formatPropertySummary).collect(Collectors.toList());
+    }
+
+    private void copyPropertySummariesToClipboard() {
+        String text = String.join("\n", formatAllPropertySummaries());
+        frame.getToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(text), null);
+    }
+
+    private static final int SPLASH_DURATION_MS = 1200;
+
+    private void showSplash() {
+        JWindow splash = new JWindow(frame);
+        JPanel p = new JPanel(new BorderLayout(20, 20));
+        p.setBorder(BorderFactory.createEmptyBorder(40, 60, 40, 60));
+        p.add(new JLabel(APP_TITLE + " — AI review checker", SwingConstants.CENTER), BorderLayout.CENTER);
+        p.add(new JLabel("Loading...", SwingConstants.CENTER), BorderLayout.SOUTH);
+        splash.getContentPane().add(p);
+        splash.pack();
+        splash.setLocationRelativeTo(null);
+        splash.setVisible(true);
+        Timer t = new Timer(SPLASH_DURATION_MS, e -> {
+            splash.dispose();
+        });
+        t.setRepeats(false);
+        t.start();
+    }
+
+    private boolean confirmClearAllData() {
+        return JOptionPane.showConfirmDialog(frame, "Clear all properties, reviews, comparisons and guides? This cannot be undone.", "Confirm clear", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION;
+    }

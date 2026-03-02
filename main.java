@@ -1103,3 +1103,88 @@ public final class HotHotelai {
     private int getTotalGuideSegments() {
         return service.getAllGuides().stream()
             .mapToInt(g -> g.getSegmentHashes().size())
+            .sum();
+    }
+
+    private boolean isPropertyFrozen(String propertyId) {
+        return service.getProperty(propertyId).map(PropertyRecord::isFrozen).orElse(false);
+    }
+
+    private void updateStatusWithStats() {
+        statusLabel.setText(String.format("Properties: %d | Reviews: %d | Comparisons: %d | Guides: %d",
+            service.getAllProperties().size(), service.getTotalReviewCount(), getTotalComparisonsCount(), getTotalGuidesCount()));
+    }
+
+    /**
+     * CSV row builder for a single property (for export variants).
+     */
+    private static String toCsvRow(PropertyRecord p) {
+        return String.join(",", escapeCsv(p.getPropertyId()), escapeCsv(p.getRegionHash()), escapeCsv(p.getListedBy()),
+            String.valueOf(p.getBlockListed()), String.valueOf(p.getCurrentScoreBand()), String.valueOf(p.getReviewCount()),
+            p.isFrozen() ? "true" : "false");
+    }
+
+    private static String escapeCsv(String s) {
+        if (s == null) return "\"\"";
+        if (s.contains(",") || s.contains("\"") || s.contains("\n")) {
+            return "\"" + s.replace("\"", "\"\"") + "\"";
+        }
+        return s;
+    }
+
+    /**
+     * Exports comparison snapshots to CSV format.
+     */
+    private void exportComparisonsCsv(Path path) throws IOException {
+        try (BufferedWriter w = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
+            w.write("propertyA,propertyB,diffHash\n");
+            for (ComparisonSnapshot c : service.getComparisons()) {
+                w.write(escapeCsv(c.getLeftId()) + "," + escapeCsv(c.getRightId()) + "," + escapeCsv(c.getDiffHash()) + "\n");
+            }
+        }
+    }
+
+    private JButton createExportComparisonsButton() {
+        JButton b = new JButton("Export comparisons CSV");
+        b.addActionListener(e -> {
+            JFileChooser fc = new JFileChooser();
+            if (fc.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                try {
+                    exportComparisonsCsv(fc.getSelectedFile().toPath());
+                    JOptionPane.showMessageDialog(frame, "Comparisons exported.");
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(frame, "Export failed: " + ex.getMessage());
+                }
+            }
+        });
+        return b;
+    }
+
+    private void addExportComparisonsToExportPanel(JPanel exportPanel) {
+        exportPanel.add(createExportComparisonsButton());
+    }
+
+    private static final class TableSorter {
+        private final DefaultTableModel model;
+        private final int columnIndex;
+        private final boolean ascending;
+
+        TableSorter(DefaultTableModel model, int columnIndex, boolean ascending) {
+            this.model = model;
+            this.columnIndex = columnIndex;
+            this.ascending = ascending;
+        }
+
+        void sort() {
+            Vector<Vector<Object>> rows = new Vector<>();
+            for (int i = 0; i < model.getRowCount(); i++) {
+                Vector<Object> row = new Vector<>();
+                for (int j = 0; j < model.getColumnCount(); j++) row.add(model.getValueAt(i, j));
+                rows.add(row);
+            }
+            rows.sort((a, b) -> {
+                Object oa = a.get(columnIndex);
+                Object ob = b.get(columnIndex);
+                int c = compareValues(oa, ob);
+                return ascending ? c : -c;
+            });

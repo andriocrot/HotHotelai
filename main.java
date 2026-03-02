@@ -1528,3 +1528,81 @@ public final class HotHotelai {
     private void installFrameListener() {
         frame.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
+            public void windowOpened(java.awt.event.WindowEvent e) {
+                onFrameShown();
+            }
+        });
+    }
+
+    private static final String EXPORT_HEADER = "propertyId,regionHash,listedBy,blockListed,scoreBand,reviewCount,frozen";
+    private static final String COMPARISON_HEADER = "propertyA,propertyB,diffHash";
+    private static final String LATTICE_HEADER = "reviewHash,scoreBand,blockAnchored,computedLatticeHash";
+
+    private static String getExportHeader() { return EXPORT_HEADER; }
+    private static String getComparisonHeader() { return COMPARISON_HEADER; }
+    private static String getLatticeHeader() { return LATTICE_HEADER; }
+
+    private void refreshAllTabs() {
+        refreshPropertyTable();
+        updateStatusWithStats();
+    }
+
+    private JButton createRefreshAllButton() {
+        JButton b = new JButton("Refresh all");
+        b.addActionListener(e -> refreshAllTabs());
+        return b;
+    }
+
+    private void ensureDefaultRegionsInCombo() {
+        if (regionFilter == null) return;
+        Set<String> current = new HashSet<>();
+        for (int i = 0; i < regionFilter.getItemCount(); i++) current.add((String) regionFilter.getItemAt(i));
+        for (String r : DEFAULT_REGIONS) if (!current.contains(r)) regionFilter.addItem(r);
+    }
+
+    private PropertyService getService() { return service; }
+    private JFrame getFrame() { return frame; }
+    private JTable getPropertyTable() { return propertyTable; }
+    private JTable getReviewTable() { return reviewTable; }
+    private DefaultTableModel getPropertyModel() { return propertyModel; }
+    private DefaultTableModel getReviewModel() { return reviewModel; }
+    private JLabel getStatusLabel() { return statusLabel; }
+    private JTextField getSearchField() { return searchField; }
+    private JComboBox<String> getRegionFilter() { return regionFilter; }
+
+    /*
+     * HotHotelai integrates with the Hotelia on-chain contract concept: properties are listed by region,
+     * reviews are anchored with score bands (0-10), and comparison snapshots store diff hashes for pairs.
+     * Lattice hashes verify review integrity for AI review checker workflows. All data can be exported
+     * to CSV or persisted locally in the .hotelai directory under user home.
+     */
+
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    private static boolean isNotBlank(String s) {
+        return !isBlank(s);
+    }
+
+    private static int clampScoreBand(int value) {
+        return Math.max(0, Math.min(SCORE_BAND_MAX, value));
+    }
+
+    private static long nowBlock() {
+        return System.currentTimeMillis();
+    }
+
+    private static String defaultRegion() {
+        return DEFAULT_REGIONS.length > 0 ? DEFAULT_REGIONS[0] : "region-default";
+    }
+
+    /** Entry point for HotHotelai — hotel comparison and AI review checker. */
+    public static void main(String[] args) {
+        System.setProperty("apple.laf.useScreenMenuBar", "true");
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception ignored) {}
+        new HotHotelai().run();
+    }
+}
